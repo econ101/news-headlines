@@ -214,10 +214,10 @@ const TABS = [
 ];
 
 const PROXIES = [
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.org/?${encodeURIComponent(url)}`,
+  url => `https://thingproxy.freeboard.io/fetch/${url}`,
   url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  url => `https://cors-anywhere.herokuapp.com/${url}`,
 ];
 
 let allStories = {};
@@ -318,11 +318,19 @@ async function fetchWithTimeout(url, ms = 10000) {
 }
 
 async function fetchSource(source) {
-  for (const makeUrl of PROXIES) {
+  for (let i = 0; i < PROXIES.length; i++) {
+    const makeUrl = PROXIES[i];
     try {
       const resp = await fetchWithTimeout(makeUrl(source.url));
       if (!resp.ok) continue;
-      const text = await resp.text();
+      let text = await resp.text();
+      // allorigins.win/get returns JSON with contents field
+      if (i === 0 && text.startsWith('{')) {
+        try {
+          const json = JSON.parse(text);
+          text = json.contents || text;
+        } catch (e) {}
+      }
       const stories = parseRSS(text, source.id, source.name);
       if (stories.length > 0) {
         allStories[source.id] = stories;
