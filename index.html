@@ -143,25 +143,10 @@
     font-family: 'Segoe UI', system-ui, sans-serif;
   }
 
-  .all-sources-section {
-    margin-bottom: 32px;
-  }
-
-  .all-sources-section h2 {
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #c41e3a;
-    border-bottom: 2px solid #c41e3a;
-    padding-bottom: 8px;
-    margin-bottom: 16px;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-  }
-
   @media (max-width: 600px) {
     header h1 { font-size: 1.5rem; }
     .story-title { font-size: 1.1rem; }
-    .source-tab { padding: 8px 12px; font-size: 0.75rem; }
+    .source-tab { padding: 8px 10px; font-size: 0.7rem; }
   }
 </style>
 </head>
@@ -172,9 +157,7 @@
   <p class="date" id="dateDisplay"></p>
 </header>
 
-<div class="source-tabs" id="tabs">
-  <div class="source-tab active" data-source="all" onclick="selectSource('all')">All</div>
-</div>
+<div class="source-tabs" id="tabs"></div>
 
 <div class="container" id="content">
   <div class="loading">
@@ -184,9 +167,22 @@
 </div>
 
 <script>
+// Sources with group tags
 const SOURCES = [
-  { id: "nyt",   name: "NY Times",       url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
-  { id: "wsj",   name: "WSJ",            url: "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
+  { id: "nyt",    name: "NY Times",  group: "usa", url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
+  { id: "wsj",    name: "WSJ",       group: "usa", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
+  { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/rss" },
+  { id: "ntv",    name: "NTV",       group: "tr",  url: "https://www.ntv.com.tr/gundem.rss" },
+];
+
+// Tabs: virtual groups + individual sources
+const TABS = [
+  { id: "all",          label: "All" },
+  { id: "usa",          label: "USA" },
+  { id: "nyt",          label: "NYT" },
+  { id: "wsj",          label: "WSJ" },
+  { id: "az",           label: "Azerbaijan" },
+  { id: "tr",           label: "Turkey" },
 ];
 
 const PROXIES = [
@@ -196,7 +192,7 @@ const PROXIES = [
 ];
 
 let allStories = {};
-let currentSource = "all";
+let currentTab = "all";
 
 // Display today's date
 const now = new Date();
@@ -206,17 +202,17 @@ document.getElementById("dateDisplay").textContent = now.toLocaleDateString('en-
 
 // Build tabs
 const tabsEl = document.getElementById("tabs");
-SOURCES.forEach(src => {
+TABS.forEach(t => {
   const tab = document.createElement("div");
-  tab.className = "source-tab";
-  tab.dataset.source = src.id;
-  tab.textContent = src.name;
-  tab.onclick = () => selectSource(src.id);
+  tab.className = "source-tab" + (t.id === "all" ? " active" : "");
+  tab.dataset.source = t.id;
+  tab.textContent = t.label;
+  tab.onclick = () => selectTab(t.id);
   tabsEl.appendChild(tab);
 });
 
-function selectSource(id) {
-  currentSource = id;
+function selectTab(id) {
+  currentTab = id;
   document.querySelectorAll(".source-tab").forEach(t => {
     t.classList.toggle("active", t.dataset.source === id);
   });
@@ -230,7 +226,7 @@ function parseRSS(xmlText, sourceId, sourceName) {
   const stories = [];
 
   items.forEach((item, i) => {
-    if (i >= 10) return;
+    if (i >= 20) return; // grab up to 20 per source
     const title = item.querySelector("title")?.textContent?.trim() || "";
     const link = item.querySelector("link")?.textContent?.trim() || "";
     const desc = item.querySelector("description")?.textContent?.trim() || "";
@@ -292,50 +288,59 @@ function formatTime(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function getStoriesForTab(tabId) {
+  // "all" and "usa" are combined views
+  // "az" shows oxu, "tr" shows ntv
+  // "nyt" and "wsj" show individual sources
+  let sourceIds;
+  if (tabId === "all") {
+    sourceIds = SOURCES.map(s => s.id);
+  } else if (tabId === "usa") {
+    sourceIds = SOURCES.filter(s => s.group === "usa").map(s => s.id);
+  } else if (tabId === "az") {
+    sourceIds = SOURCES.filter(s => s.group === "az").map(s => s.id);
+  } else if (tabId === "tr") {
+    sourceIds = SOURCES.filter(s => s.group === "tr").map(s => s.id);
+  } else {
+    sourceIds = [tabId];
+  }
+
+  let combined = [];
+  sourceIds.forEach(id => {
+    const stories = allStories[id];
+    if (!stories) return;
+    stories.forEach((s, i) => {
+      combined.push({ ...s, feedRank: i });
+    });
+  });
+
+  // Sort by feed position, then recency
+  combined.sort((a, b) => {
+    if (a.feedRank !== b.feedRank) return a.feedRank - b.feedRank;
+    const aTime = a.pubDate ? a.pubDate.getTime() : 0;
+    const bTime = b.pubDate ? b.pubDate.getTime() : 0;
+    return bTime - aTime;
+  });
+
+  // Limit: 20 for all/usa, 10 for individual sources
+  const limit = (tabId === "all" || tabId === "usa") ? 20 : 10;
+  return combined.slice(0, limit);
+}
+
 function renderStories() {
   const content = document.getElementById("content");
+  const stories = getStoriesForTab(currentTab);
 
-  if (currentSource === "all") {
-    // Combine all stories, assign importance score based on feed position
-    let combined = [];
-    SOURCES.forEach(src => {
-      const stories = allStories[src.id];
-      if (!stories || stories.length === 0) return;
-      stories.forEach((s, i) => {
-        // Lower position index = more important. Score: 0 is top, 9 is bottom.
-        combined.push({ ...s, feedRank: i });
-      });
-    });
-    // Sort by feed position (top stories first), then by recency as tiebreaker
-    combined.sort((a, b) => {
-      if (a.feedRank !== b.feedRank) return a.feedRank - b.feedRank;
-      const aTime = a.pubDate ? a.pubDate.getTime() : 0;
-      const bTime = b.pubDate ? b.pubDate.getTime() : 0;
-      return bTime - aTime; // newer first
-    });
-    // Take top 25
-    combined = combined.slice(0, 25);
-    let html = "";
-    if (combined.length === 0) {
-      html = `<div class="error">No stories loaded yet. Some sources may be unavailable.</div>`;
-    } else {
-      combined.forEach((s, i) => {
-        html += storyHTML(s, i + 1);
-      });
-    }
-    content.innerHTML = html;
-  } else {
-    const stories = allStories[currentSource];
-    if (!stories || stories.length === 0) {
-      content.innerHTML = `<div class="error">Could not load stories from this source.</div>`;
-      return;
-    }
-    let html = "";
-    stories.slice(0, 10).forEach((s, i) => {
-      html += storyHTML(s, i + 1);
-    });
-    content.innerHTML = html;
+  if (stories.length === 0) {
+    content.innerHTML = `<div class="error">No stories loaded yet. Some sources may be unavailable.</div>`;
+    return;
   }
+
+  let html = "";
+  stories.forEach((s, i) => {
+    html += storyHTML(s, i + 1);
+  });
+  content.innerHTML = html;
 }
 
 function storyHTML(story, rank) {
