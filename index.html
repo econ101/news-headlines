@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Today's Top Stories</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #f4f1eb;
+    color: #222;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #1a1a1a;
+    color: white;
+    padding: 24px 20px;
+    text-align: center;
+    border-bottom: 4px solid #c41e3a;
+  }
+
+  header h1 {
+    font-size: 2.2rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  header .date {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: #aaa;
+  }
+
+  .source-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    background: #2a2a2a;
+    justify-content: center;
+    padding: 0 20px;
+  }
+
+  .source-tab {
+    padding: 10px 20px;
+    color: #999;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .source-tab:hover { color: #ddd; }
+  .source-tab.active { color: white; border-bottom-color: #c41e3a; }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 1rem;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #ddd;
+    border-top-color: #c41e3a;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .story {
+    border-bottom: 1px solid #ddd;
+    padding: 20px 0;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .story:last-child { border-bottom: none; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .story-rank {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.75rem;
+    color: #c41e3a;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .story-title {
+    font-size: 1.3rem;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  .story-title a {
+    color: #1a1a1a;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .story-title a:hover { color: #c41e3a; }
+
+  .story-desc {
+    font-size: 0.95rem;
+    color: #555;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .story-meta {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.75rem;
+    color: #999;
+  }
+
+  .error {
+    text-align: center;
+    padding: 40px;
+    color: #c41e3a;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .all-sources-section {
+    margin-bottom: 32px;
+  }
+
+  .all-sources-section h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #c41e3a;
+    border-bottom: 2px solid #c41e3a;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.5rem; }
+    .story-title { font-size: 1.1rem; }
+    .source-tab { padding: 8px 12px; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Today's Top Stories</h1>
+  <p class="date" id="dateDisplay"></p>
+</header>
+
+<div class="source-tabs" id="tabs">
+  <div class="source-tab active" data-source="all" onclick="selectSource('all')">All</div>
+</div>
+
+<div class="container" id="content">
+  <div class="loading">
+    <div class="spinner"></div>
+    Fetching headlines...
+  </div>
+</div>
+
+<script>
+const SOURCES = [
+  { id: "nyt",   name: "NY Times",       url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
+  { id: "wsj",   name: "WSJ",            url: "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
+];
+
+const PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
+let allStories = {};
+let currentSource = "all";
+
+// Display today's date
+const now = new Date();
+document.getElementById("dateDisplay").textContent = now.toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// Build tabs
+const tabsEl = document.getElementById("tabs");
+SOURCES.forEach(src => {
+  const tab = document.createElement("div");
+  tab.className = "source-tab";
+  tab.dataset.source = src.id;
+  tab.textContent = src.name;
+  tab.onclick = () => selectSource(src.id);
+  tabsEl.appendChild(tab);
+});
+
+function selectSource(id) {
+  currentSource = id;
+  document.querySelectorAll(".source-tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.source === id);
+  });
+  renderStories();
+}
+
+function parseRSS(xmlText, sourceId, sourceName) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, "text/xml");
+  const items = doc.querySelectorAll("item");
+  const stories = [];
+
+  items.forEach((item, i) => {
+    if (i >= 10) return;
+    const title = item.querySelector("title")?.textContent?.trim() || "";
+    const link = item.querySelector("link")?.textContent?.trim() || "";
+    const desc = item.querySelector("description")?.textContent?.trim() || "";
+    const pubDate = item.querySelector("pubDate")?.textContent?.trim() || "";
+
+    // Strip HTML tags from description
+    const cleanDesc = desc.replace(/<[^>]*>/g, '').substring(0, 200);
+
+    stories.push({
+      title,
+      link,
+      description: cleanDesc,
+      pubDate: pubDate ? new Date(pubDate) : null,
+      sourceId,
+      sourceName,
+    });
+  });
+
+  return stories;
+}
+
+async function fetchWithTimeout(url, ms = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return resp;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+async function fetchSource(source) {
+  for (const makeUrl of PROXIES) {
+    try {
+      const resp = await fetchWithTimeout(makeUrl(source.url));
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      const stories = parseRSS(text, source.id, source.name);
+      if (stories.length > 0) {
+        allStories[source.id] = stories;
+        return;
+      }
+    } catch (e) {
+      // try next proxy
+    }
+  }
+  console.warn(`All proxies failed for ${source.name}`);
+  allStories[source.id] = [];
+}
+
+function formatTime(date) {
+  if (!date || isNaN(date)) return "";
+  const hours = Math.floor((now - date) / (1000 * 60 * 60));
+  if (hours < 1) return "Just now";
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function renderStories() {
+  const content = document.getElementById("content");
+
+  if (currentSource === "all") {
+    // Combine all stories, assign importance score based on feed position
+    let combined = [];
+    SOURCES.forEach(src => {
+      const stories = allStories[src.id];
+      if (!stories || stories.length === 0) return;
+      stories.forEach((s, i) => {
+        // Lower position index = more important. Score: 0 is top, 9 is bottom.
+        combined.push({ ...s, feedRank: i });
+      });
+    });
+    // Sort by feed position (top stories first), then by recency as tiebreaker
+    combined.sort((a, b) => {
+      if (a.feedRank !== b.feedRank) return a.feedRank - b.feedRank;
+      const aTime = a.pubDate ? a.pubDate.getTime() : 0;
+      const bTime = b.pubDate ? b.pubDate.getTime() : 0;
+      return bTime - aTime; // newer first
+    });
+    // Take top 10
+    combined = combined.slice(0, 10);
+    let html = "";
+    if (combined.length === 0) {
+      html = `<div class="error">No stories loaded yet. Some sources may be unavailable.</div>`;
+    } else {
+      combined.forEach((s, i) => {
+        html += storyHTML(s, i + 1);
+      });
+    }
+    content.innerHTML = html;
+  } else {
+    const stories = allStories[currentSource];
+    if (!stories || stories.length === 0) {
+      content.innerHTML = `<div class="error">Could not load stories from this source.</div>`;
+      return;
+    }
+    let html = "";
+    stories.slice(0, 10).forEach((s, i) => {
+      html += storyHTML(s, i + 1);
+    });
+    content.innerHTML = html;
+  }
+}
+
+function storyHTML(story, rank) {
+  return `
+    <div class="story">
+      <div class="story-rank">${rank}. ${story.sourceName}</div>
+      <div class="story-title"><a href="${story.link}" target="_blank" rel="noopener">${story.title}</a></div>
+      ${story.description ? `<div class="story-desc">${story.description}</div>` : ''}
+      <div class="story-meta">${formatTime(story.pubDate)}</div>
+    </div>
+  `;
+}
+
+// Fetch all sources in parallel, render as each completes
+async function init() {
+  const promises = SOURCES.map(async src => {
+    await fetchSource(src);
+    renderStories();
+  });
+  await Promise.allSettled(promises);
+  renderStories();
+}
+
+init();
+</script>
+</body>
+</html>
