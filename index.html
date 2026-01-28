@@ -353,9 +353,8 @@ function getStoriesForTab(tabId) {
     return bTime - aTime;
   });
 
-  // Limit: 20 for all/usa, 10 for individual sources
-  const limit = (tabId === "all" || tabId === "usa") ? 20 : 10;
-  return combined.slice(0, limit);
+  // Limit: 20 for all tabs
+  return combined.slice(0, 20);
 }
 
 function renderStories() {
