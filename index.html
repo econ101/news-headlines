@@ -173,6 +173,7 @@ const SOURCES = [
   { id: "wsj",    name: "WSJ",       group: "usa", url: "https://news.google.com/rss/search?q=site:wsj.com&hl=en-US&gl=US&ceid=US:en" },
   { id: "econ",   name: "Economist", group: "intl", url: "https://news.google.com/rss/search?q=site:economist.com&hl=en-US&gl=US&ceid=US:en" },
   { id: "soccer", name: "r/soccer",  group: "sports", url: "https://www.reddit.com/r/soccer/.rss" },
+  { id: "popular", name: "r/popular", group: "social", url: "https://www.reddit.com/r/popular/.rss" },
   { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/feed" },
   { id: "ntv",    name: "NTV",       group: "tr",  url: "https://www.ntv.com.tr/gundem.rss" },
   // Substacks (from Nate Silver's recommendations)
@@ -207,6 +208,7 @@ const TABS = [
   { id: "econ",         label: "Economist" },
   { id: "substack",     label: "Substack" },
   { id: "soccer",       label: "Soccer" },
+  { id: "social",       label: "Social" },
   { id: "az",           label: "Azerbaijan" },
   { id: "tr",           label: "Turkey" },
 ];
@@ -354,6 +356,8 @@ function getStoriesForTab(tabId) {
     sourceIds = SOURCES.filter(s => s.group === "tr").map(s => s.id);
   } else if (tabId === "substack") {
     sourceIds = SOURCES.filter(s => s.group === "substack").map(s => s.id);
+  } else if (tabId === "social") {
+    sourceIds = SOURCES.filter(s => s.group === "social").map(s => s.id);
   } else {
     sourceIds = [tabId];
   }
