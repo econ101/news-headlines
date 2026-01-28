@@ -347,7 +347,8 @@ function getStoriesForTab(tabId) {
   // Group tabs filter by group, individual tabs filter by id
   let sourceIds;
   if (tabId === "all") {
-    sourceIds = SOURCES.map(s => s.id);
+    // Only NYT, WSJ, Economist, Azerbaijan, Turkey for "All"
+    sourceIds = ["nyt", "wsj", "econ", "oxu", "ntv"];
   } else if (tabId === "usa") {
     sourceIds = SOURCES.filter(s => s.group === "usa").map(s => s.id);
   } else if (tabId === "az") {
