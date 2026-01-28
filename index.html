@@ -171,7 +171,7 @@
 const SOURCES = [
   { id: "nyt",    name: "NY Times",  group: "usa", url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
   { id: "wsj",    name: "WSJ",       group: "usa", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
-  { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/rss" },
+  { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/feed" },
   { id: "ntv",    name: "NTV",       group: "tr",  url: "https://www.ntv.com.tr/gundem.rss" },
 ];
 
@@ -222,17 +222,44 @@ function selectTab(id) {
 function parseRSS(xmlText, sourceId, sourceName) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, "text/xml");
-  const items = doc.querySelectorAll("item");
+
+  // Try RSS format first, then Atom
+  let items = doc.querySelectorAll("item");
+  const isAtom = items.length === 0;
+  if (isAtom) {
+    items = doc.querySelectorAll("entry");
+  }
+
   const stories = [];
 
   items.forEach((item, i) => {
-    if (i >= 20) return; // grab up to 20 per source
+    if (i >= 20) return;
     const title = item.querySelector("title")?.textContent?.trim() || "";
-    const link = item.querySelector("link")?.textContent?.trim() || "";
-    const desc = item.querySelector("description")?.textContent?.trim() || "";
-    const pubDate = item.querySelector("pubDate")?.textContent?.trim() || "";
 
-    // Strip HTML tags from description
+    let link = "";
+    if (isAtom) {
+      const linkEl = item.querySelector("link[href]");
+      link = linkEl ? linkEl.getAttribute("href") : "";
+    } else {
+      link = item.querySelector("link")?.textContent?.trim() || "";
+    }
+
+    let desc = "";
+    if (isAtom) {
+      desc = item.querySelector("summary")?.textContent?.trim() ||
+             item.querySelector("content")?.textContent?.trim() || "";
+    } else {
+      desc = item.querySelector("description")?.textContent?.trim() || "";
+    }
+
+    let pubDate = "";
+    if (isAtom) {
+      pubDate = item.querySelector("published")?.textContent?.trim() ||
+                item.querySelector("updated")?.textContent?.trim() || "";
+    } else {
+      pubDate = item.querySelector("pubDate")?.textContent?.trim() || "";
+    }
+
     const cleanDesc = desc.replace(/<[^>]*>/g, '').substring(0, 200);
 
     stories.push({
