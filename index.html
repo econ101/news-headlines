@@ -213,11 +213,11 @@ const TABS = [
   { id: "tr",           label: "Turkey" },
 ];
 
+// rss2json returns JSON directly, others return XML
 const PROXIES = [
-  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.org/?${encodeURIComponent(url)}`,
-  url => `https://thingproxy.freeboard.io/fetch/${url}`,
-  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, isJson: true },
+  { url: url => `https://thingproxy.freeboard.io/fetch/${url}`, isJson: false },
+  { url: url => `https://corsproxy.org/?${encodeURIComponent(url)}`, isJson: false },
 ];
 
 let allStories = {};
@@ -319,19 +319,31 @@ async function fetchWithTimeout(url, ms = 10000) {
 
 async function fetchSource(source) {
   for (let i = 0; i < PROXIES.length; i++) {
-    const makeUrl = PROXIES[i];
+    const proxy = PROXIES[i];
     try {
-      const resp = await fetchWithTimeout(makeUrl(source.url));
+      const resp = await fetchWithTimeout(proxy.url(source.url));
       if (!resp.ok) continue;
-      let text = await resp.text();
-      // allorigins.win/get returns JSON with contents field
-      if (i === 0 && text.startsWith('{')) {
-        try {
-          const json = JSON.parse(text);
-          text = json.contents || text;
-        } catch (e) {}
+
+      let stories = [];
+      if (proxy.isJson) {
+        // rss2json returns JSON directly
+        const json = await resp.json();
+        if (json.status === 'ok' && json.items) {
+          stories = json.items.slice(0, 20).map(item => ({
+            title: item.title || '',
+            link: item.link || '',
+            description: (item.description || '').replace(/<[^>]*>/g, '').substring(0, 200),
+            pubDate: item.pubDate ? new Date(item.pubDate) : null,
+            sourceId: source.id,
+            sourceName: source.name,
+          }));
+        }
+      } else {
+        // Regular proxy returns XML
+        const text = await resp.text();
+        stories = parseRSS(text, source.id, source.name);
       }
-      const stories = parseRSS(text, source.id, source.name);
+
       if (stories.length > 0) {
         allStories[source.id] = stories;
         return;
