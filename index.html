@@ -313,8 +313,8 @@ function renderStories() {
       const bTime = b.pubDate ? b.pubDate.getTime() : 0;
       return bTime - aTime; // newer first
     });
-    // Take top 10
-    combined = combined.slice(0, 10);
+    // Take top 25
+    combined = combined.slice(0, 25);
     let html = "";
     if (combined.length === 0) {
       html = `<div class="error">No stories loaded yet. Some sources may be unavailable.</div>`;
