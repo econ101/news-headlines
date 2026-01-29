@@ -317,7 +317,36 @@ async function fetchWithTimeout(url, ms = 10000) {
   }
 }
 
+async function fetchReddit(source) {
+  // Reddit has a native JSON API - no proxy needed
+  const jsonUrl = source.url.replace('.rss', '.json');
+  try {
+    const resp = await fetchWithTimeout(jsonUrl);
+    if (!resp.ok) return false;
+    const json = await resp.json();
+    const posts = json.data?.children || [];
+    const stories = posts.slice(0, 10).map(post => ({
+      title: post.data.title || '',
+      link: `https://www.reddit.com${post.data.permalink}`,
+      description: (post.data.selftext || '').substring(0, 200),
+      pubDate: post.data.created_utc ? new Date(post.data.created_utc * 1000) : null,
+      sourceId: source.id,
+      sourceName: source.name,
+    }));
+    if (stories.length > 0) {
+      allStories[source.id] = stories;
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 async function fetchSource(source) {
+  // Use Reddit's native JSON API for Reddit sources
+  if (source.url.includes('reddit.com')) {
+    if (await fetchReddit(source)) return;
+  }
+
   for (let i = 0; i < PROXIES.length; i++) {
     const proxy = PROXIES[i];
     try {
@@ -329,7 +358,7 @@ async function fetchSource(source) {
         // rss2json returns JSON directly
         const json = await resp.json();
         if (json.status === 'ok' && json.items) {
-          stories = json.items.slice(0, 20).map(item => ({
+          stories = json.items.slice(0, 10).map(item => ({
             title: item.title || '',
             link: item.link || '',
             description: (item.description || '').replace(/<[^>]*>/g, '').substring(0, 200),
