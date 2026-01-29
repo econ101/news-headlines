@@ -174,6 +174,7 @@ const SOURCES = [
   { id: "econ",   name: "Economist", group: "intl", url: "https://news.google.com/rss/search?q=site:economist.com&hl=en-US&gl=US&ceid=US:en" },
   { id: "soccer", name: "r/soccer",  group: "sports", url: "https://www.reddit.com/r/soccer/.rss" },
   { id: "popular", name: "r/popular", group: "social", url: "https://www.reddit.com/r/popular/.rss" },
+  { id: "wsb", name: "r/wallstreetbets", group: "stocks", url: "https://www.reddit.com/r/wallstreetbets/.rss" },
   { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/feed" },
   { id: "ntv",    name: "NTV",       group: "tr",  url: "https://www.ntv.com.tr/gundem.rss" },
   // Substacks (from Nate Silver's recommendations)
@@ -209,13 +210,14 @@ const TABS = [
   { id: "substack",     label: "Substack" },
   { id: "soccer",       label: "Soccer" },
   { id: "social",       label: "Social" },
+  { id: "stocks",       label: "Stocks" },
   { id: "az",           label: "Azerbaijan" },
   { id: "tr",           label: "Turkey" },
 ];
 
 // rss2json returns JSON directly, others return XML
 const PROXIES = [
-  { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, isJson: true },
+  { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=20`, isJson: true },
   { url: url => `https://thingproxy.freeboard.io/fetch/${url}`, isJson: false },
   { url: url => `https://corsproxy.org/?${encodeURIComponent(url)}`, isJson: false },
 ];
@@ -380,6 +382,8 @@ function getStoriesForTab(tabId) {
     sourceIds = SOURCES.filter(s => s.group === "substack").map(s => s.id);
   } else if (tabId === "social") {
     sourceIds = SOURCES.filter(s => s.group === "social").map(s => s.id);
+  } else if (tabId === "stocks") {
+    sourceIds = SOURCES.filter(s => s.group === "stocks").map(s => s.id);
   } else {
     sourceIds = [tabId];
   }
