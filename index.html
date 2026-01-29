@@ -174,7 +174,6 @@ const SOURCES = [
   { id: "econ",   name: "Economist", group: "intl", url: "https://news.google.com/rss/search?q=site:economist.com&hl=en-US&gl=US&ceid=US:en" },
   { id: "soccer", name: "r/soccer",  group: "sports", url: "https://www.reddit.com/r/soccer/.rss" },
   { id: "popular", name: "r/popular", group: "social", url: "https://www.reddit.com/r/popular/.rss" },
-  { id: "wsb", name: "r/wallstreetbets", group: "stocks", url: "https://www.reddit.com/r/wallstreetbets/.rss" },
   { id: "oxu",    name: "Oxu.az",    group: "az",  url: "https://oxu.az/feed" },
   { id: "ntv",    name: "NTV",       group: "tr",  url: "https://www.ntv.com.tr/gundem.rss" },
   // Substacks (from Nate Silver's recommendations)
@@ -210,7 +209,6 @@ const TABS = [
   { id: "substack",     label: "Substack" },
   { id: "soccer",       label: "Soccer" },
   { id: "social",       label: "Social" },
-  { id: "stocks",       label: "Stocks" },
   { id: "az",           label: "Azerbaijan" },
   { id: "tr",           label: "Turkey" },
 ];
@@ -317,36 +315,7 @@ async function fetchWithTimeout(url, ms = 10000) {
   }
 }
 
-async function fetchReddit(source) {
-  // Reddit has a native JSON API - no proxy needed
-  const jsonUrl = source.url.replace('.rss', '.json');
-  try {
-    const resp = await fetchWithTimeout(jsonUrl);
-    if (!resp.ok) return false;
-    const json = await resp.json();
-    const posts = json.data?.children || [];
-    const stories = posts.slice(0, 10).map(post => ({
-      title: post.data.title || '',
-      link: `https://www.reddit.com${post.data.permalink}`,
-      description: (post.data.selftext || '').substring(0, 200),
-      pubDate: post.data.created_utc ? new Date(post.data.created_utc * 1000) : null,
-      sourceId: source.id,
-      sourceName: source.name,
-    }));
-    if (stories.length > 0) {
-      allStories[source.id] = stories;
-      return true;
-    }
-  } catch (e) {}
-  return false;
-}
-
 async function fetchSource(source) {
-  // Use Reddit's native JSON API for Reddit sources
-  if (source.url.includes('reddit.com')) {
-    if (await fetchReddit(source)) return;
-  }
-
   for (let i = 0; i < PROXIES.length; i++) {
     const proxy = PROXIES[i];
     try {
@@ -409,8 +378,6 @@ function getStoriesForTab(tabId) {
     sourceIds = SOURCES.filter(s => s.group === "substack").map(s => s.id);
   } else if (tabId === "social") {
     sourceIds = SOURCES.filter(s => s.group === "social").map(s => s.id);
-  } else if (tabId === "stocks") {
-    sourceIds = SOURCES.filter(s => s.group === "stocks").map(s => s.id);
   } else {
     sourceIds = [tabId];
   }
