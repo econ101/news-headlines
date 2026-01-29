@@ -215,11 +215,9 @@ const TABS = [
   { id: "tr",           label: "Turkey" },
 ];
 
-// rss2json returns JSON directly, others return XML
+// Use rss2json only - other CORS proxies block GitHub Pages
 const PROXIES = [
   { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=20`, isJson: true },
-  { url: url => `https://thingproxy.freeboard.io/fetch/${url}`, isJson: false },
-  { url: url => `https://corsproxy.org/?${encodeURIComponent(url)}`, isJson: false },
 ];
 
 let allStories = {};
