@@ -217,7 +217,7 @@ const TABS = [
 
 // Use rss2json only - other CORS proxies block GitHub Pages
 const PROXIES = [
-  { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=20`, isJson: true },
+  { url: url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, isJson: true },
 ];
 
 let allStories = {};
