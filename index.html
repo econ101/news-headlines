@@ -387,13 +387,22 @@ function getStoriesForTab(tabId) {
     });
   });
 
-  // Sort by feed position, then recency
-  combined.sort((a, b) => {
-    if (a.feedRank !== b.feedRank) return a.feedRank - b.feedRank;
-    const aTime = a.pubDate ? a.pubDate.getTime() : 0;
-    const bTime = b.pubDate ? b.pubDate.getTime() : 0;
-    return bTime - aTime;
-  });
+  // For substack: sort purely by recency (most recent articles first)
+  // For others: sort by feed position, then recency
+  if (tabId === "substack") {
+    combined.sort((a, b) => {
+      const aTime = a.pubDate ? a.pubDate.getTime() : 0;
+      const bTime = b.pubDate ? b.pubDate.getTime() : 0;
+      return bTime - aTime;
+    });
+  } else {
+    combined.sort((a, b) => {
+      if (a.feedRank !== b.feedRank) return a.feedRank - b.feedRank;
+      const aTime = a.pubDate ? a.pubDate.getTime() : 0;
+      const bTime = b.pubDate ? b.pubDate.getTime() : 0;
+      return bTime - aTime;
+    });
+  }
 
   // Limit: 20 for All and USA, 10 for others
   const limit = (tabId === "all" || tabId === "usa") ? 20 : 10;
