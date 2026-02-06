@@ -201,6 +201,7 @@ const TABS = [
   { id: "social",       label: "Social" },
   { id: "az",           label: "Azerbaijan" },
   { id: "tr",           label: "Turkey" },
+  { id: "stocks",       label: "Stocks", link: "https://econ101.github.io/mag7-chart/" },
 ];
 
 // Use rss2json only - other CORS proxies block GitHub Pages
@@ -224,7 +225,12 @@ TABS.forEach(t => {
   tab.className = "source-tab" + (t.id === "all" ? " active" : "");
   tab.dataset.source = t.id;
   tab.textContent = t.label;
-  tab.onclick = () => selectTab(t.id);
+  if (t.link) {
+    // External link tab
+    tab.onclick = () => window.open(t.link, '_blank');
+  } else {
+    tab.onclick = () => selectTab(t.id);
+  }
   tabsEl.appendChild(tab);
 });
 
